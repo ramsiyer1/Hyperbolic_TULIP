@@ -1,5 +1,5 @@
 # 🌷 TULIP: Token-length Upgraded CLIP 
-## [[Paper](https://arxiv.org/pdf/2410.10034)] [[Long-DCI benchmark](https://huggingface.co/datasets/mderakhshani/Long-DCI)] [[Checkpoint](https://huggingface.co/mderakhshani/TULIP/tree/main)]  [[Website (TBD)]()]
+## [[Paper](https://arxiv.org/pdf/2410.10034)] [[Long-DCI benchmark](https://huggingface.co/datasets/mderakhshani/Long-DCI)] [[Checkpoint](https://huggingface.co/mderakhshani/TULIP/tree/main)]  
 
 
 
