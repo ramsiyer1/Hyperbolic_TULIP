@@ -113,7 +113,7 @@ def run_eval_clip(args):
                                                 layers=teacher_cfg["text_cfg"]["layers"],
                                                 output_dim=teacher_cfg["text_cfg"]["width"])
                 
-            checkpoint = torch.load(args.distilled_model_path)
+            checkpoint = torch.load(args.distilled_model_path, weights_only = False)
             
             # remove all the module. prefix from the state_dict of the checkpoint
             checkpoint['state_dict'] = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}
