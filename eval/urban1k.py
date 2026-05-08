@@ -7,8 +7,8 @@ import numpy as np
 from tqdm import tqdm
 
 
-image_root = '/Datasets/Urban1k/image/'
-caption_root = '/Datasets/Urban1k/caption/'
+image_root = 'Datasets/Urban1k/image/'
+caption_root = 'Datasets/Urban1k/caption/'
 
 class local_dataset(data.Dataset):
     def __init__(self, data_path):
@@ -58,9 +58,9 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
     distilled_model.eval()
 
     # Create DataLoader
-    batch_size = 512  # Adjust based on your GPU memory
+    batch_size = 16  # Adjust based on your GPU memory
     dataset = OptimizedLocalDataset(data_path, processor)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     img_feature_list = []
     text_feature_list = []
