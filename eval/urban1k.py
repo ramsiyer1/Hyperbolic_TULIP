@@ -57,6 +57,9 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
     model.eval()
     distilled_model.eval()
 
+    print("\n=== Distilled Model Info ===") # --> New Edits - 15-05-2026
+    print(distilled_model) # --> New Edits - 15-05-2026
+
     # Create DataLoader
     batch_size = 16  # Adjust based on your GPU memory
     dataset = OptimizedLocalDataset(data_path, processor)
