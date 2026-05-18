@@ -5,6 +5,7 @@ import torch.utils.data as data
 import os
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 image_root = 'Datasets/Urban1k/image/'
