@@ -304,6 +304,14 @@ class AttentionRoPE(nn.Module):
         
         q, k = apply_rotary_emb(q, k, freqs_cis=freqs_cis)
 
+        # ==========================================
+        # NEW CODE: Save a copy of Q and K to the class instance
+        # ==========================================
+        print("NEW CODE: Save a copy of Q and K to the class instance") # --> New Edits - 18-05-2026
+        self.saved_q = q.detach() # --> New Edits - 18-05-2026
+        self.saved_k = k.detach() # --> New Edits - 18-05-2026
+        # ==========================================
+
         # reshape q, k, v back to (L, N * num_heads, head_dim)
         q = rearrange(q, 'N L num_heads head_dim -> (N num_heads) L head_dim', num_heads=self.num_heads)
         v = rearrange(v, 'N L num_heads head_dim -> (N num_heads) L head_dim', num_heads=self.num_heads)
