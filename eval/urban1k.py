@@ -129,7 +129,10 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
         plt.grid(True, linestyle='--', alpha=0.6) # --> New Edits - 18-05-2026
         plt.legend() # --> New Edits - 18-05-2026
         plt.tight_layout() # --> New Edits - 18-05-2026
-        plt.show() # --> New Edits - 18-05-2026
+        #plt.show() # --> New Edits - 18-05-2026
+        plt.savefig('rope_decay_plot.png', bbox_inches='tight') # --> New Edits - 18-05-2026
+        print("Plot successfully saved as 'rope_decay_plot.png'!") # --> New Edits - 18-05-2026
+        plt.close() # --> New Edits - 18-05-2026
 
         logit_scale = 100
         
