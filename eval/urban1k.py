@@ -88,6 +88,36 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
         image_embeds /= image_embeds.norm(dim=-1, keepdim=True)
         text_feature /= text_feature.norm(dim=-1, keepdim=True)
 
+        #Getting saved Q and K
+        print("Getting saved Q and K") # --> New Edits - 18-05-2026
+        attn_layer = distilled_model.transformer.resblocks[0].attn # --> New Edits - 18-05-2026
+
+        if not hasattr(attn_layer, 'saved_q'): # --> New Edits - 18-05-2026 
+            print("Error: Could not find 'saved_q'. Make sure you added the two lines to AttentionRoPE!") # --> New Edits - 18-05-2026
+            return # --> New Edits - 18-05-2026
+
+        q_rot = attn_layer.saved_q  # Shape: (N, L, num_heads, head_dim) # --> New Edits - 18-05-2026
+        k_rot = attn_layer.saved_k  # Shape: (N, L, num_heads, head_dim) # --> New Edits - 18-05-2026
+
+        print(f"Shape of saved_q: {q_rot.shape}") # --> New Edits - 18-05-2026
+        print(f"Shape of saved_k: {k_rot.shape}") # --> New Edits - 18-05-2026
+
+        # Isolate the first batch (0) and first attention head (0)
+        q_head = q_rot[0, :, 0, :] # Shape: [L, head_dim] # --> New Edits - 18-05-2026
+        k_head = k_rot[0, :, 0, :] # Shape: [L, head_dim] # --> New Edits - 18-05-2026
+
+        print(f"Shape of first attention head q: {q_head.shape}") # --> New Edits - 18-05-2026
+        print(f"Shape of first attention head k: {k_head.shape}") # --> New Edits - 18-05-2026
+
+        # Calculate Attention Scores
+        # We want to see how token 0 (Query 0) attends to all other tokens (Keys 0 to L) # --> New Edits - 18-05-2026
+        q0 = q_head[0, :] # The query for the very first token # --> New Edits - 18-05-2026
+
+        # Dot product of q0 with all keys: [head_dim] @ [L, head_dim].T -> [L] # --> New Edits - 18-05-2026
+        print("Getting attention scores") # --> New Edits - 18-05-2026
+        attention_scores = torch.matmul(q0, k_head.transpose(-1, -2)).cpu().numpy() # --> New Edits - 18-05-2026
+        print(type(attention_scores), attention_scores.shape, attention_scores.size) # --> New Edits - 18-05-2026
+
         logit_scale = 100
         
         # Calculate metrics
