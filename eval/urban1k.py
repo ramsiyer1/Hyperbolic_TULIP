@@ -118,6 +118,18 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
         attention_scores = torch.matmul(q0, k_head.transpose(-1, -2)).cpu().numpy() # --> New Edits - 18-05-2026
         print(type(attention_scores), attention_scores.shape, attention_scores.size) # --> New Edits - 18-05-2026
 
+        # Plot results
+        plt.figure(figsize=(10, 5), dpi=120)
+        plt.plot(range(len(attention_scores)), attention_scores, label='Attention Score (RoPE Decay)', color='blue')
+    
+        plt.title('RoPE Positional Decay (Extracted from Trained Model)')
+        plt.xlabel('Token Distance', fontweight='bold')
+        plt.ylabel('Pre-Softmax Attention Score', fontweight='bold')
+        plt.grid(True, linestyle='--', alpha=0.6)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
         logit_scale = 100
         
         # Calculate metrics
