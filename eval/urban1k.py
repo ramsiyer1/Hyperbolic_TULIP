@@ -8,8 +8,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
-image_root = 'Datasets/Urban1k/image/'
-caption_root = 'Datasets/Urban1k/caption/'
+#image_root = 'Datasets/Urban1k/image/'
+image_root = 'Datasets/Decay_Test/image/' # --> New Edits - 19-05-2026
+#caption_root = 'Datasets/Urban1k/caption/'
+caption_root = 'Datasets/Decay_Test/caption/' # --> New Edits - 19-05-2026
 
 class local_dataset(data.Dataset):
     def __init__(self, data_path):
