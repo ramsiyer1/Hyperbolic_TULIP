@@ -114,11 +114,13 @@ def run_urban1k_openclip(model, distilled_model, processor, data_path):
 
         # Calculate Attention Scores
         # We want to see how token 0 (Query 0) attends to all other tokens (Keys 0 to L) # --> New Edits - 18-05-2026
-        q0 = q_head[0, :] # The query for the very first token # --> New Edits - 18-05-2026
+        #q0 = q_head[0, :] # The query for the very first token # --> New Edits - 18-05-2026
+        q0 = q_head[5, :] # The query for the very first token # --> New Edits - 19-05-2026 (for plotting try)
 
         # Dot product of q0 with all keys: [head_dim] @ [L, head_dim].T -> [L] # --> New Edits - 18-05-2026
         print("Getting attention scores") # --> New Edits - 18-05-2026
-        attention_scores = torch.matmul(q0, k_head.transpose(-1, -2)).cpu().numpy() # --> New Edits - 18-05-2026
+        #attention_scores = torch.matmul(q0, k_head.transpose(-1, -2)).cpu().numpy() # --> New Edits - 18-05-2026
+        attention_scores = torch.matmul(q0, k_head[5:240, :].transpose(-1, -2)).cpu().numpy() # --> New Edits - 19-05-2026 (for plotting try)
         print(type(attention_scores), attention_scores.shape, attention_scores.size) # --> New Edits - 18-05-2026
 
         # Plot results
