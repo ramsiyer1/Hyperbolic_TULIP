@@ -13,7 +13,7 @@ from .utils import to_2tuple
 from .pos_embed import get_2d_sincos_pos_embed
 
 
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
+'''def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     """
     Precompute the frequency tensor for complex exponentials (cis) with given dimensions.
     This function calculates a frequency tensor with complex exponentials using the given dimension 'dim'
@@ -32,9 +32,33 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     t = torch.arange(end, device=freqs.device)  # end here refers to max_position_embeddings
     freqs = torch.outer(t, freqs).float()  # type: ignore
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
-    return freqs_cis
+    return freqs_cis'''
 
-def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0):
+################################ NEW EDITS - 08-06-2026 ##############################################
+def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
+    """
+    Precompute cosh and sinh tensors for Hyperbolic Position Embeddings (HoPE).
+    """
+    # 1. Compute the base frequencies (same as RoPE)
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    t = torch.arange(end, device=freqs.device)
+    
+    # 2. Create the angle matrix: Shape [end, dim // 2]
+    freqs = torch.outer(t, freqs).float() 
+    
+    # 3. Compute hyperbolic values
+    cosh_half = torch.cosh(freqs)
+    sinh_half = torch.sinh(freqs)
+    
+    # 4. Concatenate them so they mirror across the head dimension halves
+    # Shape becomes: [end, dim]
+    cosh = torch.cat([cosh_half, cosh_half], dim=-1)
+    sinh = torch.cat([sinh_half, sinh_half], dim=-1)
+    
+    return cosh, sinh
+######################################################################################################
+
+'''def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0):
     """
     LlamaRotaryEmbedding extended with Dynamic NTK scaling. Credits to the Reddit users /u/bloc97 and /u/emozilla
     Args:
@@ -50,7 +74,33 @@ def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, s
     t = torch.arange(new_end, device=freqs.device)  # end here refers to max_position_embeddings
     freqs = torch.outer(t, freqs).float()  # type: ignore
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)  # complex64
-    return freqs_cis
+    return freqs_cis'''
+
+################################ NEW EDITS - 08-06-2026 ##############################################
+def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0):
+    """
+    LlamaRotaryEmbedding extended with Dynamic NTK scaling. Credits to the Reddit users /u/bloc97 and /u/emozilla
+    Args:
+        dim (int): Dimension of the frequency tensor.
+        new_end (int): The new end index for precomputing frequencies, equivalent to `max_position_embeddings` in Transformers
+        default_end (int): The default end index for precomputing frequencies, equivalent to `max_position_embeddings` in Transformers
+        theta (float, optional): Scaling factor for frequency computation. Defaults to 10000.0, , equivalent to `base` in Transformers
+    Returns:
+        torch.Tensor: Precomputed frequency tensor with complex exponentials.
+    """
+    theta = theta * ((scaling_factor * new_end / end) - (scaling_factor - 1)) ** (dim / (dim - 2))
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim)) # this is equivalent to inv_freqs
+    t = torch.arange(new_end, device=freqs.device)  # end here refers to max_position_embeddings
+    freqs = torch.outer(t, freqs).float()  # type: ignore
+
+    cosh_half = torch.cosh(freqs)
+    sinh_half = torch.sinh(freqs)
+
+    cosh = torch.cat([cosh_half, cosh_half], dim=-1)
+    sinh = torch.cat([sinh_half, sinh_half], dim=-1)
+
+    return cosh, sinh
+######################################################################################################
 
 def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
     """
