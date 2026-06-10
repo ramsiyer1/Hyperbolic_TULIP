@@ -102,7 +102,7 @@ def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, s
     return cosh, sinh
 ######################################################################################################
 
-def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
+'''def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
     """
     Reshape frequency tensor for broadcasting it with another tensor.
     This function reshapes the frequency tensor to have the same shape as the target tensor 'x'
@@ -121,10 +121,48 @@ def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
     assert 0 <= 1 < ndim
     assert freqs_cis.shape == (x.shape[1], x.shape[-1])
     shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
+    return freqs_cis.view(*shape)'''
+
+################################ NEW EDITS - 10-06-2026 ##############################################
+def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
+    """
+    Reshapes a 2D positional tensor [Seq_Len, Dim] to a 4D tensor [1, Seq_Len, 1, Dim]
+    so it can easily broadcast across the Batch and Head dimensions of x.
+    """
+    ndim = x.ndim
+    assert 0 <= 1 < ndim
+    assert freqs_cis.shape == (x.shape[1], x.shape[-1])
+    
+    shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
     return freqs_cis.view(*shape)
 
+def swap_half(x):
+    """Splits the tensor in half along the last dimension and swaps them."""
+    x1 = x[..., :x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2:]
+    return torch.cat((x2, x1), dim=-1)
 
-def apply_rotary_emb(
+def apply_hyperbolic_emb(
+    xq: torch.Tensor,
+    xk: torch.Tensor,
+    cosh: torch.Tensor,
+    sinh: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Applies Hyperbolic Position Embeddings (HoPE) to Queries and Keys.
+    """
+    # 1. Dynamically stretch BOTH hyperbolic tensors to 4D [1, Seq_Len, 1, Head_Dim]
+    cosh_broadcast = reshape_for_broadcast(cosh, xq)
+    sinh_broadcast = reshape_for_broadcast(sinh, xq)
+    
+    # 2. Execute the matrix transformation using element-wise math
+    xq_out = (xq * cosh_broadcast) + (swap_half(xq) * sinh_broadcast)
+    xk_out = (xk * cosh_broadcast) - (swap_half(xk) * sinh_broadcast)
+    
+    return xq_out.type_as(xq), xk_out.type_as(xk)
+######################################################################################################
+
+'''def apply_rotary_emb(
     xq: torch.Tensor,
     xk: torch.Tensor,
     freqs_cis: torch.Tensor,
@@ -149,7 +187,7 @@ def apply_rotary_emb(
     freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
     xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
     xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
-    return xq_out.type_as(xq), xk_out.type_as(xk)
+    return xq_out.type_as(xq), xk_out.type_as(xk)'''
 
 
 class LayerNormFp32(nn.LayerNorm):
