@@ -35,7 +35,7 @@ from .pos_embed import get_2d_sincos_pos_embed
     return freqs_cis'''
 
 ################################ NEW EDITS - 08-06-2026 ##############################################
-def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
+def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_prime: float = 0.0002):
     """
     Precompute cosh and sinh tensors for Hyperbolic Position Embeddings (HoPE).
     """
@@ -54,8 +54,18 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0):
     # Shape becomes: [end, dim]
     cosh = torch.cat([cosh_half, cosh_half], dim=-1)
     sinh = torch.cat([sinh_half, sinh_half], dim=-1)
+
+    # 5. Get positions 'm' from 0 to end (Shape: [end])
+    positions = torch.arange(end, dtype=torch.float32) # --> New Edits - 15-06-2026
+
+    # 6. Simple scalar multiplication: m * theta_prime (Shape: [end])
+    m_theta_prime = positions * theta_prime # --> New Edits - 15-06-2026
+
+    # 7. Generate the 1D exponential penalties (Shape: [end])
+    exp_q = torch.exp(-m_theta_prime) # e^{-m * theta_prime} --> New Edits - 15-06-2026
+    exp_k = torch.exp(m_theta_prime)  # e^{m * theta_prime} --> New Edits - 15-06-2026
     
-    return cosh, sinh
+    return cosh, sinh, exp_q, exp_k
 ######################################################################################################
 
 '''def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0):
@@ -99,7 +109,14 @@ def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, s
     cosh = torch.cat([cosh_half, cosh_half], dim=-1)
     sinh = torch.cat([sinh_half, sinh_half], dim=-1)
 
-    return cosh, sinh
+    positions = torch.arange(end, dtype=torch.float32) # --> New Edits - 15-06-2026
+
+    m_theta_prime = positions * theta_prime # --> New Edits - 15-06-2026
+
+    exp_q = torch.exp(-m_theta_prime) # e^{-m * theta_prime} --> New Edits - 15-06-2026
+    exp_k = torch.exp(m_theta_prime)  # e^{m * theta_prime} --> New Edits - 15-06-2026
+
+    return cosh, sinh, exp_q, exp_k
 ######################################################################################################
 
 '''def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
@@ -147,6 +164,8 @@ def apply_hyperbolic_emb(
     xk: torch.Tensor,
     cosh: torch.Tensor,
     sinh: torch.Tensor,
+    exp_q: torch.Tensor,
+    exp_k: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Applies Hyperbolic Position Embeddings (HoPE) to Queries and Keys.
@@ -154,10 +173,18 @@ def apply_hyperbolic_emb(
     # 1. Dynamically stretch BOTH hyperbolic tensors to 4D [1, Seq_Len, 1, Head_Dim]
     cosh_broadcast = reshape_for_broadcast(cosh, xq)
     sinh_broadcast = reshape_for_broadcast(sinh, xq)
+
+    seq_len = xq.shape[1] # --> New Edits - 15-06-2026
+    exp_q_broadcast = exp_q[:seq_len].view(1, seq_len, 1, 1).to(xq.device) # --> New Edits - 15-06-2026
+    exp_k_broadcast = exp_k[:seq_len].view(1, seq_len, 1, 1).to(xk.device) # --> New Edits - 15-06-2026
     
     # 2. Execute the matrix transformation using element-wise math
-    xq_out = (xq * cosh_broadcast) + (swap_half(xq) * sinh_broadcast)
-    xk_out = (xk * cosh_broadcast) - (swap_half(xk) * sinh_broadcast)
+    xq_rot = (xq * cosh_broadcast) + (swap_half(xq) * sinh_broadcast)
+    xk_rot = (xk * cosh_broadcast) - (swap_half(xk) * sinh_broadcast)
+
+    # 3. Apply the scalar exponential penalty modulations
+    xq_out = xq_rot * exp_q_broadcast # --> New Edits - 15-06-2025 
+    xk_out = xk_rot * exp_k_broadcast # --> New Edits - 15-06-2025
     
     return xq_out.type_as(xq), xk_out.type_as(xk)
 ######################################################################################################
@@ -380,7 +407,7 @@ class AttentionRoPE(nn.Module):
         self.out_proj = nn.Linear(dim, dim)
         self.out_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, attn_mask: Optional[torch.Tensor] = None, cosh: Optional[torch.Tensor] = None, sinh: Optional[torch.Tensor] = None):
+    def forward(self, x, attn_mask: Optional[torch.Tensor] = None, cosh: Optional[torch.Tensor] = None, sinh: Optional[torch.Tensor] = None, exp_q: Optional[torch.Tensor] = None, exp_k: Optional[torch.Tensor] = None):
         L, N, C = x.shape
         q, k, v = F.linear(x, self.in_proj_weight, self.in_proj_bias).chunk(3, dim=-1)
 
@@ -391,8 +418,8 @@ class AttentionRoPE(nn.Module):
 
         # apply rotary embeddings
         
-        if cosh is not None and sinh is not None:
-            q, k = apply_hyperbolic_emb(q, k, cosh=cosh, sinh=sinh)
+        if cosh is not None and sinh is not None and exp_q is not None and exp_k is not None:
+            q, k = apply_hyperbolic_emb(q, k, cosh=cosh, sinh=sinh, exp_q=exp_q, exp_k=exp_k)
 
         # ==========================================
         # NEW CODE: Save a copy of Q and K to the class instance
@@ -686,8 +713,8 @@ class CustomResidualAttentionBlockRoPE(nn.Module):
         ]))
         self.ls_2 = LayerScale(d_model, ls_init_value) if ls_init_value is not None else nn.Identity()
 
-    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, cosh: Optional[torch.Tensor] = None, sinh: Optional[torch.Tensor] = None):
-        x = x + self.ls_1(self.ln_attn(self.attn(self.ln_1(x), attn_mask=attn_mask, cosh=cosh, sinh=sinh)))
+    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, cosh: Optional[torch.Tensor] = None, sinh: Optional[torch.Tensor] = None, exp_q: Optional[torch.Tensor] = None, exp_k: Optional[torch.Tensor] = None):
+        x = x + self.ls_1(self.ln_attn(self.attn(self.ln_1(x), attn_mask=attn_mask, cosh=cosh, sinh=sinh, exp_q=exp_q, exp_k=exp_k)))
         x = x + self.ls_2(self.mlp(self.ln_2(x)))
         return x
 
@@ -798,10 +825,10 @@ class TransformerRoPe(nn.Module):
                 width, heads, mlp_ratio, ls_init_value=ls_init_value, act_layer=act_layer, norm_layer=norm_layer)
             for _ in range(layers)
         ])
-        self.cosh, self.sinh = precompute_freqs_cis(
+        self.cosh, self.sinh, self.exp_q, self.exp_k = precompute_freqs_cis(
             # Note that self.params.max_seq_len is multiplied by 2 because the token limit for the Llama 2 generation of models is 4096. 
             # Adding this multiplier instead of using 4096 directly allows for dynamism of token lengths while training or fine-tuning.
-            dim=width // heads, end=max_seq_len * 2
+            dim=width // heads, end=max_seq_len * 2, theta_prime=0.0002
         )
         
     def get_cast_dtype(self) -> torch.dtype:
@@ -813,6 +840,8 @@ class TransformerRoPe(nn.Module):
         seqlen = x.shape[0]
         cosh = self.cosh.to(x.device)[:seqlen]
         sinh = self.sinh.to(x.device)[:seqlen]
+        exp_q = self.exp_q.to(x.device)[:seqlen]
+        exp_k = self.exp_k.to(x.device)[:seqlen]
 
         for r in self.resblocks:
             if self.grad_checkpointing and not torch.jit.is_scripting():
