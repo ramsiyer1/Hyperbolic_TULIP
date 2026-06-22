@@ -503,7 +503,15 @@ def get_wds_dataset(args, preprocess_img, is_train, epoch=0, floor=False, tokeni
 def get_csv_dataset(args, preprocess_fn, is_train, epoch=0, tokenizer=None):
     input_filename = args.train_data if is_train else args.val_data
     assert input_filename
-    dataset = CsvDataset(
+    '''dataset = CsvDataset(
+        input_filename,
+        preprocess_fn,
+        img_key=args.csv_img_key,
+        caption_key=args.csv_caption_key,
+        sep=args.csv_separator,
+        tokenizer=tokenizer
+    )'''
+    dataset = CsvDatasetShortLongCaps(
         input_filename,
         preprocess_fn,
         img_key=args.csv_img_key,
