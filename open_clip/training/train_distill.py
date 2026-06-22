@@ -122,7 +122,11 @@ def train_one_epoch(model, student_model, data, loss, epoch, optimizer, scaler, 
         if not args.skip_scheduler:
             scheduler(step)
             
-        _, texts, _ = batch
+        #_, texts, _ = batch
+        if len(batch) == 3: # New Edits - 22-06-2026
+            _, texts, _ = batch # New Edits - 22-06-2026
+        else: # New Edits - 22-06-2026
+            _, texts = batch # New Edits - 22-06-2026
         texts = texts.to(device=device, non_blocking=True)
 
         data_time_m.update(time.time() - end)
@@ -542,7 +546,11 @@ def evaluate(model, student_model, data, epoch, args, tb_writer=None, tokenizer=
         all_image_features, all_text_features = [], []
         with torch.no_grad():
             for i, batch in enumerate(dataloader):
-                images, texts, _ = batch
+                #images, texts, _ = batch
+                if len(batch) == 3: # New Edits - 22-06-2026
+                    images, texts, _ = batch # New Edits - 22-06-2026
+                else: # New Edits - 22-06-2026
+                    images, texts = batch # New Edits - 22-06-2026
                 images = images.to(device=device, dtype=input_dtype, non_blocking=True)
                 texts = texts.to(device=device, non_blocking=True)
 
