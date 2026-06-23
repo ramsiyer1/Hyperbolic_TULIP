@@ -87,7 +87,7 @@ def precompute_freqs_cis(dim: int, end: int, theta: float = 10000.0, theta_prime
     return freqs_cis'''
 
 ################################ NEW EDITS - 08-06-2026 ##############################################
-def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0):
+def precompute_freqs_cis_dynamic_ntk_scaling(dim: int, new_end: int, end: int, scaling_factor: float = 2., theta: float = 10000.0, theta_prime: float = 0.0002):
     """
     LlamaRotaryEmbedding extended with Dynamic NTK scaling. Credits to the Reddit users /u/bloc97 and /u/emozilla
     Args:
